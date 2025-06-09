@@ -1,0 +1,19 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded rectangle background -->
+  <rect x="8" y="8" width="84" height="84" rx="18" ry="18" fill="none" stroke="#2d3748" stroke-width="6"/>
+  
+  <!-- Main curved arrow path -->
+  <path d="M30 35 Q25 25 40 25 Q55 25 65 35 Q70 45 65 55 Q55 65 40 65 Q30 65 25 55 Q22 50 25 45" 
+        fill="none" 
+        stroke="#2d3748" 
+        stroke-width="5" 
+        stroke-linecap="round"/>
+  
+  <!-- Arrow head pointing right -->
+  <path d="M60 30 L70 40 L60 50" 
+        fill="none" 
+        stroke="#2d3748" 
+        stroke-width="5" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+</svg> 

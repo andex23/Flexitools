@@ -7,9 +7,39 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="FlexiTool - Resize, convert images and create PDFs locally in your browser"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <!-- Font imports -->
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+    
+    <!-- Responsive styles -->
+    <style>
+      /* Hide scrollbars for horizontal navigation */
+      nav::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* Responsive breakpoints */
+      @media (max-width: 475px) {
+        .xs\:block { display: block !important; }
+        .xs\:inline { display: inline !important; }
+        .xs\:hidden { display: none !important; }
+      }
+      
+      /* Improve touch targets on mobile */
+      @media (max-width: 640px) {
+        button {
+          min-height: 44px;
+        }
+      }
+      
+      /* Prevent horizontal scroll */
+      body {
+        overflow-x: hidden;
+      }
+    </style>
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
@@ -24,7 +54,7 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>React App</title>
+    <title>FlexiTool - Image & PDF Tools</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
