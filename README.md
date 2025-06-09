@@ -1,107 +1,52 @@
-# 🛠️ Image Tools
+# 🧰 FlexiTool
 
-A lightweight, client-side web application built with React + TypeScript for processing images locally in your browser. No uploads to servers - all processing happens on your device!
+**FlexiTool** is something I built because I was tired of jumping between random tools just to resize an image, convert a file, or turn something into a PDF.
 
-## ✨ Features
+I use tools like this every day while designing, building, or just messing around — so I made my own version. It's clean, fast, and everything happens in your browser. No uploading, no tracking — just get your stuff done.
 
-### 📐 Image Resizer
-- **Preset Aspect Ratios**: 1:1, 4:5, 16:9, 3:2
-- **Custom Dimensions**: Set specific width and height
-- **Maintain Aspect Ratio**: Option to preserve original proportions
-- **Live Preview**: See changes in real-time
-- **Download**: Get your resized image instantly
+---
 
-### 🔁 Format Converter
-- **Multiple Formats**: Convert between PNG, JPEG, and SVG
-- **Quality Control**: Adjust JPEG compression quality
-- **SVG Support**: Convert SVG files to raster formats
-- **Live Preview**: Preview converted images before download
+## ⚡ What It Does
 
-### 📥 Upload System
-- **Drag & Drop**: Simply drag images into the upload zone
-- **Click to Browse**: Traditional file picker
-- **Clipboard Paste**: Paste images directly with Ctrl+V (or Cmd+V)
-- **File Validation**: Supports PNG, JPG, and SVG files up to 50MB
-- **Image Preview**: Thumbnail preview of uploaded images
+- 🎯 **Image Resizer**
+  - Resize to presets like 1:1, 16:9, or anything custom
+  - Live preview, easy download
+
+- 🔁 **Format Converter**
+  - Convert between JPG, PNG, WEBP, SVG, etc.
+  - Handles almost anything you throw at it
+
+- 📄 **To PDF**
+  - Drop images or docs, get a clean PDF back
+  - Works with multiple files too
+
+- 📊 **CSV Converter**
+  - Upload CSVs and turn them into JSON, Excel, or PDF
+  - Paste raw text or JSON and convert to CSV
+  - File size + preview table included
+
+- 🔒 **Everything is local**
+  - No uploads. No server. Just your browser doing its thing.
+
+---
+
+## 💻 Tech Stuff
+
+- React + TypeScript
+- Tailwind CSS (milk aesthetic + Courier vibes)
+- `papaparse`, `xlsx`, `jsPDF`, `html2canvas`
+- Toasts for feedback
+- Fully responsive and mobile-friendly
+
+---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Node.js (version 14 or higher)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd image-tools
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/yourusername/flexitool.git
+cd flexitool
 npm install
-```
-
-3. Start the development server:
-```bash
-npm start
-```
-
-4. Open your browser and navigate to `http://localhost:3000`
-
-## 🏗️ Project Structure
-
-```
-src/
-├── components/
-│   ├── Tabs.tsx              # Navigation tabs component
-│   ├── DropUpload.tsx        # File upload with drag & drop
-│   ├── ImageResizer.tsx      # Image resizing tool
-│   └── FormatConverter.tsx   # Format conversion tool
-├── utils/
-│   ├── canvasUtils.ts        # Canvas operations and image processing
-│   └── imageHelpers.ts       # Image validation and utility functions
-├── App.tsx                   # Main application component
-└── index.tsx                 # Application entry point
-```
-
-## 🛡️ Privacy & Security
-
-- **100% Client-Side**: All image processing happens in your browser
-- **No Server Uploads**: Images never leave your device
-- **No Data Collection**: We don't store or track any user data
-- **Local Processing**: Uses HTML5 Canvas API for image manipulation
-
-## 🎨 Technologies Used
-
-- **React 18** with TypeScript
-- **Tailwind CSS** for styling
-- **react-dropzone** for file uploads
-- **react-hot-toast** for notifications
-- **HTML5 Canvas API** for image processing
-
-## 📱 Browser Support
-
-Works in all modern browsers that support:
-- HTML5 Canvas API
-- File API
-- Drag and Drop API
-- Clipboard API (for paste functionality)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
+npm run dev
 
 - Built with Create React App
 - Icons from Unicode emoji set
