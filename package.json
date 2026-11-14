@@ -29,7 +29,11 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "server": "node server/index.mjs",
+    "test:server": "node --test server/*.test.mjs",
+    "serve": "node server/index.mjs",
+    "test:large-video": "node scripts/large-video-smoke.mjs"
   },
   "eslintConfig": {
     "extends": [
@@ -53,5 +57,6 @@
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0"
-  }
+  },
+  "proxy": "http://127.0.0.1:4318"
 }

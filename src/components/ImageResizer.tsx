@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { loadImageFromFile, resizeImage, downloadImage } from '../utils/canvasUtils';
 import { ASPECT_RATIOS, AspectRatioKey, calculateDimensionsFromAspectRatio, generateFileName } from '../utils/imageHelpers';
@@ -14,7 +14,8 @@ const ImageResizer: React.FC = () => {
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatioKey>('1:1');
   const [customWidth, setCustomWidth] = useState<string>('');
   const [customHeight, setCustomHeight] = useState<string>('');
-  const [useCustomDimensions, setUseCustomDimensions] = useState(false);
+  const [useCustomDimensions, setUseCustomDimensions] = useState(true);
+  const [dimensionError, setDimensionError] = useState('');
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -22,7 +23,7 @@ const ImageResizer: React.FC = () => {
     {
       id: 'preset' as ResizeMode,
       label: 'Preset Ratios',
-      description: 'Popular social media and standard aspect ratios',
+      description: 'Fit inside a preset canvas, with transparent padding',
       icon: '📐'
     },
     {
@@ -33,118 +34,97 @@ const ImageResizer: React.FC = () => {
     }
   ];
 
-  const handleFileUpload = (file: File | null) => {
+  const handleFileUpload = useCallback((file: File | null) => {
     setUploadedFile(file);
-  };
+    setOriginalImage(null);
+    setPreviewCanvas(null);
+  }, []);
 
-  // Load original image when file changes
+  // Ignore a decode that finishes after a newer file was selected or removed.
   useEffect(() => {
-    if (uploadedFile) {
-      setLoading(true);
-      loadImageFromFile(uploadedFile)
-        .then((img) => {
-          setOriginalImage(img);
-          setCustomWidth(img.width.toString());
-          setCustomHeight(img.height.toString());
-          setLoading(false);
-        })
-        .catch((error) => {
-          console.error('Error loading image:', error);
-          toast.error('Failed to load image');
-          setLoading(false);
-        });
-    } else {
-      setOriginalImage(null);
-      setPreviewCanvas(null);
+    let cancelled = false;
+    setOriginalImage(null);
+    setPreviewCanvas(null);
+    setDimensionError('');
+    if (!uploadedFile) {
+      setLoading(false);
+      return;
     }
+    setLoading(true);
+    loadImageFromFile(uploadedFile).then((img) => {
+      if (cancelled) return;
+      setOriginalImage(img);
+      setCustomWidth(String(img.width));
+      setCustomHeight(String(img.height));
+      setUseCustomDimensions(true);
+      setMaintainAspectRatio(true);
+      setLoading(false);
+    }).catch((error) => {
+      if (cancelled) return;
+      toast.error(error instanceof Error ? error.message : 'Failed to load image');
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [uploadedFile]);
 
-  // Update preview when settings change
   useEffect(() => {
-    if (originalImage) {
-      updatePreview();
+    if (!originalImage) return;
+    let canvas: HTMLCanvasElement | null = null;
+    try {
+      const dimensions = useCustomDimensions
+        ? { width: Number(customWidth), height: Number(customHeight) }
+        : calculateDimensionsFromAspectRatio(originalImage.width, originalImage.height, selectedAspectRatio, 1920);
+      canvas = resizeImage(originalImage, {
+        ...dimensions,
+        maintainAspectRatio: useCustomDimensions && maintainAspectRatio,
+        fit: useCustomDimensions ? 'stretch' : 'contain'
+      });
+      setPreviewCanvas(canvas);
+      setDimensionError('');
+    } catch (error) {
+      setPreviewCanvas(null);
+      setDimensionError(error instanceof Error ? error.message : 'Check the output dimensions.');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      if (canvas) { canvas.width = 0; canvas.height = 0; }
+    };
   }, [originalImage, selectedAspectRatio, customWidth, customHeight, useCustomDimensions, maintainAspectRatio]);
 
-  const updatePreview = () => {
-    if (!originalImage) return;
+  // Draw after the display canvas mounts, including after download/loading states.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !previewCanvas || loading) return;
+    const scale = Math.min(400 / previewCanvas.width, 400 / previewCanvas.height, 1);
+    canvas.width = Math.max(1, Math.round(previewCanvas.width * scale));
+    canvas.height = Math.max(1, Math.round(previewCanvas.height * scale));
+    canvas.getContext('2d')?.drawImage(previewCanvas, 0, 0, canvas.width, canvas.height);
+  }, [previewCanvas, loading]);
 
-    try {
-      let width: number, height: number;
-
-      if (useCustomDimensions) {
-        width = parseInt(customWidth) || originalImage.width;
-        height = parseInt(customHeight) || originalImage.height;
-      } else {
-        const dimensions = calculateDimensionsFromAspectRatio(
-          originalImage.width,
-          originalImage.height,
-          selectedAspectRatio,
-          Math.min(originalImage.width, 1920)
-        );
-        width = dimensions.width;
-        height = dimensions.height;
-      }
-
-      const canvas = resizeImage(originalImage, {
-        width,
-        height,
-        maintainAspectRatio: useCustomDimensions ? maintainAspectRatio : false
-      });
-
-      setPreviewCanvas(canvas);
-
-      // Update canvas display
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d');
-        if (ctx) {
-          const displayWidth = Math.min(canvas.width, 400);
-          const displayHeight = (canvas.height / canvas.width) * displayWidth;
-          
-          canvasRef.current.width = displayWidth;
-          canvasRef.current.height = displayHeight;
-          
-          ctx.drawImage(canvas, 0, 0, displayWidth, displayHeight);
-        }
-      }
-    } catch (error) {
-      console.error('Error updating preview:', error);
-      toast.error('Failed to update preview');
+  const updateWidth = (value: string) => {
+    setCustomWidth(value);
+    const width = Number(value);
+    if (maintainAspectRatio && originalImage && Number.isFinite(width) && width > 0) {
+      setCustomHeight(String(Math.max(1, Math.round(width * originalImage.height / originalImage.width))));
+    }
+  };
+  const updateHeight = (value: string) => {
+    setCustomHeight(value);
+    const height = Number(value);
+    if (maintainAspectRatio && originalImage && Number.isFinite(height) && height > 0) {
+      setCustomWidth(String(Math.max(1, Math.round(height * originalImage.width / originalImage.height))));
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!previewCanvas || !uploadedFile) return;
     setLoading(true);
-
     try {
-      const filename = generateFileName(uploadedFile.name, 'resized');
-      downloadImage(previewCanvas, filename, 'png');
-      toast.success('Image downloaded successfully!');
+      await downloadImage(previewCanvas, generateFileName(uploadedFile.name, 'resized', 'png'), 'png');
+      toast.success('Image download started');
     } catch (error) {
-      console.error('Error downloading image:', error);
-      toast.error('Failed to download image');
+      toast.error(error instanceof Error ? error.message : 'Failed to download image');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getDimensions = () => {
-    if (!originalImage) return { width: 0, height: 0 };
-    
-    if (useCustomDimensions) {
-      return {
-        width: parseInt(customWidth) || originalImage.width,
-        height: parseInt(customHeight) || originalImage.height
-      };
-    } else {
-      return calculateDimensionsFromAspectRatio(
-        originalImage.width,
-        originalImage.height,
-        selectedAspectRatio,
-        Math.min(originalImage.width, 1920)
-      );
     }
   };
 
@@ -186,7 +166,7 @@ const ImageResizer: React.FC = () => {
     );
   }
 
-  const dimensions = getDimensions();
+  const dimensions = { width: previewCanvas?.width ?? 0, height: previewCanvas?.height ?? 0 };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -271,29 +251,35 @@ const ImageResizer: React.FC = () => {
           <div className="mb-6">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-graphite font-body mb-1">
+                <label htmlFor="resize-width" className="block text-sm font-medium text-graphite font-body mb-1">
                   Width (px)
                 </label>
                 <input
                   type="number"
+                  id="resize-width"
                   value={customWidth}
-                  onChange={(e) => setCustomWidth(e.target.value)}
+                  onChange={(e) => updateWidth(e.target.value)}
                   className="w-full px-3 py-2 border border-creamline rounded-xl focus:outline-none focus:ring-2 focus:ring-ink focus:border-ink bg-milk text-graphite transition-all font-body"
                   placeholder="Width"
                   min="1"
+                  max="16384"
+                  step="1"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-graphite font-body mb-1">
+                <label htmlFor="resize-height" className="block text-sm font-medium text-graphite font-body mb-1">
                   Height (px)
                 </label>
                 <input
                   type="number"
+                  id="resize-height"
                   value={customHeight}
-                  onChange={(e) => setCustomHeight(e.target.value)}
+                  onChange={(e) => updateHeight(e.target.value)}
                   className="w-full px-3 py-2 border border-creamline rounded-xl focus:outline-none focus:ring-2 focus:ring-ink focus:border-ink bg-milk text-graphite transition-all font-body"
                   placeholder="Height"
                   min="1"
+                  max="16384"
+                  step="1"
                 />
               </div>
             </div>
@@ -310,6 +296,8 @@ const ImageResizer: React.FC = () => {
           </div>
         )}
 
+        {dimensionError && <p role="alert" className="text-sm text-red-700 mb-4">{dimensionError}</p>}
+        {!useCustomDimensions && <p className="text-sm text-mist mb-4">Your image keeps its proportions. Empty space is transparent in the downloaded PNG.</p>}
         {/* Output Dimensions */}
         {originalImage && (
           <div className="bg-matcha bg-opacity-20 rounded-xl p-4 mb-6">
@@ -323,7 +311,7 @@ const ImageResizer: React.FC = () => {
               <div>
                 <span className="font-medium text-graphite font-body">Output:</span>
                 <span className="text-mist ml-2 font-body">
-                  {dimensions.width} × {dimensions.height}
+                  {previewCanvas ? `${dimensions.width} × ${dimensions.height}` : '—'}
                 </span>
               </div>
             </div>

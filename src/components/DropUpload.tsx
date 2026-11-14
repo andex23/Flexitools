@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { validateImageFile, getImagePreviewUrl, formatFileSize, handlePasteImage } from '../utils/imageHelpers';
 
 interface DropUploadProps {
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File | null) => void;
   uploadedFile: File | null;
 }
 
@@ -33,8 +33,15 @@ const DropUpload: React.FC<DropUploadProps> = ({ onFileUpload, uploadedFile }) =
     isDragReject
   } = useDropzone({
     onDrop,
+    onDropRejected: (rejections) => {
+      const tooLarge = rejections.some(({ errors }) => errors.some(({ code }) => code === 'file-too-large'));
+      toast.error(tooLarge ? 'Choose an image no larger than 50 MB.' : 'Choose one PNG, JPG, WebP, or SVG image.');
+    },
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.bmp', '.tiff', '.webp']
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/webp': ['.webp'],
+      'image/svg+xml': ['.svg']
     },
     multiple: false,
     maxSize: 50 * 1024 * 1024 // 50MB
@@ -68,24 +75,12 @@ const DropUpload: React.FC<DropUploadProps> = ({ onFileUpload, uploadedFile }) =
       setPreviewUrl(url);
       
       return () => {
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-        }
+        URL.revokeObjectURL(url);
       };
     } else {
       setPreviewUrl(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadedFile]);
-
-  // Cleanup preview URL on unmount
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
 
   return (
     <div className="w-full">
@@ -116,7 +111,7 @@ const DropUpload: React.FC<DropUploadProps> = ({ onFileUpload, uploadedFile }) =
             </div>
             
             <div className="text-xs text-mist font-body">
-              Supports PNG, JPG, SVG, GIF, BMP, TIFF, WebP files up to 50MB
+              PNG, JPG, WebP, and SVG · up to 50 MB
             </div>
           </div>
         </div>
@@ -150,11 +145,12 @@ const DropUpload: React.FC<DropUploadProps> = ({ onFileUpload, uploadedFile }) =
                 
                 <button
                   onClick={() => {
-                    onFileUpload(null as any); // Clear the file
+                    onFileUpload(null);
                     setPreviewUrl(null);
                   }}
                   className="ml-2 text-mist hover:text-rose hover:scale-110 transition-all duration-200"
                   title="Remove image"
+                  aria-label="Remove image"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -183,4 +179,4 @@ const DropUpload: React.FC<DropUploadProps> = ({ onFileUpload, uploadedFile }) =
   );
 };
 
-export default DropUpload; 
+export default DropUpload;
