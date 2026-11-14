@@ -1,3 +1,5 @@
+> Historical review of the initial server-based implementation. The default app now uses free browser processing. See [current verification](free-tools-verification.md) and [free hosting](free-hosting.md).
+
 # Flexitool design and flow review
 
 ## What changed

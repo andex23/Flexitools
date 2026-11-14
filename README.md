@@ -1,91 +1,81 @@
 # Flexitool
 
-An everyday toolbox for smaller images and videos, image resizing, format conversion, PDFs, and CSVs.
-
-![Flexitool workspace](docs/screenshots/02-redesigned-desktop.png)
+A free, open-source toolbox for images, video, audio, PDFs, and CSVs. Every default tool processes files on the visitor's device. No account, uploads, API keys, paid backend, or desktop helper is required.
 
 ## Tools
 
-- **Compress images:** JPG, PNG, and WebP; three quality presets; optional target size; proportional resizing; before/after previews and actual byte savings. Images stay in the browser.
-- **Compress videos:** upload from the website, choose a quality preset or target size, optionally reduce resolution, then compare and download MP4. Native FFmpeg runs on the hosting server; no software installation is required for visitors.
-- **Resize images:** original proportions by default, custom dimensions, or preset canvases with transparent padding instead of stretching.
-- **Convert images:** JPG, PNG, WebP, and SVG wrappers containing raster images (not vector tracing).
-- **Create PDFs** and **convert CSVs:** existing tools remain available.
+| Tool | What it does |
+| --- | --- |
+| Compress image | JPG/PNG/WebP, quality presets, optional target size, resize, before/after preview and actual savings |
+| Video & audio | Compress to MP4 or WebM, trim, reduce resolution, mute, or extract audio to M4A/Ogg/WAV when supported |
+| Batch images | Process images sequentially, download individually or as one ZIP, keep successful results when another file fails |
+| Resize image | Custom dimensions, preserved proportions, preset canvases with padding |
+| Edit image | Crop, rotate, text watermark, or re-encode without copying source metadata |
+| Convert image / HEIC | JPG/PNG/WebP conversion, raster-in-SVG wrappers, and local HEIC primary-photo conversion |
+| Create / organize PDFs | Create PDFs, merge, extract/reorder pages, or split selected pages into a ZIP |
+| Convert CSV | Convert between CSV, JSON, Excel, and PDF |
 
-## Quality and limits
+Tools load on demand. New media/file workspaces retain their work while you switch tools. Browser memory and CPU are shared between tools, so complete one demanding job before starting another.
 
-“Best quality” prioritizes visual detail; it does **not** promise lossless compression or a fixed reduction. Already compressed files may not get smaller. Compare the result before downloading. A video target size overrides the quality preset and may noticeably reduce detail. Final sizes are approximate.
+## Free hosting
 
-Image compression accepts still JPG/PNG/WebP files up to 100 MiB, 50 megapixels, and 16,384 pixels per side. Animated PNG/WebP files are rejected rather than silently flattened. Original dimensions are retained unless resizing is selected. PNG uses lossless encoding; resizing and converting from another format are separate operations. JPEG flattens transparency onto white. Re-encoding can remove metadata.
+**GitHub Pages** is a suitable starting point for this public open-source toolbox. **Cloudflare Pages Free** is another option. The website serves static assets; selected media never passes through either host. No custom domain purchase is necessary.
 
-Video uploads default to 10 GiB per file. MP4/MOV, WebM/MKV and AVI are supported when FFmpeg can decode their codecs. Output uses H.264 video and AAC audio in MP4. It retains the first video track and the first available audio track; extra tracks, subtitles, chapters and metadata are omitted. Odd dimensions may be rounded down for codec compatibility. HDR sources are rejected to avoid unintended color changes. Videos longer than 24 hours or over 40 megapixels are rejected. The browser may be unable to preview a source codec that the server can still convert.
+- [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages): available for public repositories on GitHub Free, subject to its [usage limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
+- [Cloudflare Pages](https://developers.cloudflare.com/pages/platform/limits/): Free plan currently includes 500 builds/month and a 25 MiB limit per site asset. This asset limit does not limit locally selected video files.
+
+See [free hosting instructions](docs/free-hosting.md). The included Pages workflow runs only when manually requested; pushing the feature branch does not publish it.
+
+## Quality and practical limits
+
+“Best quality” prioritizes detail; it does not promise lossless compression, a fixed reduction, or an exact target size. Already compressed files may not become smaller. Review the result before replacing an original. Reducing dimensions, trimming, and removing audio all change the content. PNG uses lossless encoding, but format conversion and color handling can still change a picture.
+
+| Tool | Guardrails |
+| --- | --- |
+| Still image compression/editing | Up to 100 MiB, 50 megapixels, 16,384 pixels per side; animated PNG/WebP rejected |
+| Batch compression | Up to 25 files, 200 MiB combined; individual image limits still apply |
+| HEIC conversion | Up to 30 MiB, 50 megapixels, 16,384 pixels per side; primary still photo only; sequence containers rejected |
+| PDF organizer | Up to 10 files, 100 MiB combined, 500 pages; encrypted PDFs rejected |
+| Browser video/audio | Up to 500 MiB input and 256 MiB output in memory; supported desktop browsers can attempt up to 4 GiB input with direct disk saving |
+
+Video/audio uses Mediabunny and the browser's WebCodecs implementation. Use HTTPS (or localhost). The app probes available codecs and checks each source; recent desktop Chrome/Edge usually offer the most options, but support also depends on the OS and source codec. MP4 uses H.264/AAC and WebM uses VP9/Opus when those encoders are available. An unsupported audio track produces an error; mute explicitly to remove it. Only the primary video/audio tracks are retained. Subtitles, additional tracks, chapters, and source metadata are not preserved. HDR video is rejected to avoid unintended color changes. Maximum duration is 24 hours; dimensions are capped at 40 megapixels and 16,384 pixels per side.
+
+**Multi-GB processing is an attempt, not a reliability guarantee.** Direct saving streams output to a file instead of retaining the finished file in browser memory. It needs a browser with the File System Access API, sufficient free disk and memory, and a supported codec. The page must stay open. Mobile devices and browsers without direct saving use the smaller limits. There is no universal free server handling large videos behind the scenes. [HandBrake](https://handbrake.fr/) remains a free desktop fallback for files the browser cannot handle.
+
+HEIC conversion extracts the primary still image; Live Photo motion, depth data, extra images, HDR, and source metadata are not preserved. The decoder is fetched from this website only when needed. Cancellation discards a pending decode result after that decode finishes. Metadata removal re-encodes pixels without copying source metadata; it can remove color profiles, change colors/size, and does not remove information visibly present in a photo.
+
+PDF organization creates new documents. Digital signatures are not retained, and interactive forms, bookmarks, or attachments may not carry over. Review the output before sharing.
 
 ## Run locally
 
-Requirements: Node.js 22+, npm, native `ffmpeg` and `ffprobe` available in PATH. On Debian/Ubuntu, install FFmpeg with `sudo apt-get install ffmpeg`; on macOS, `brew install ffmpeg`.
+Requirements: Node.js 22+ and npm. No FFmpeg installation is needed for the default website.
 
 ```sh
 npm ci
-npm run build
-npm run serve
+npm start
 ```
 
-Open `http://localhost:4318`. This runs the complete website and video API together.
-
-For development, run `npm run server` in one terminal and `npm start` in another. React uses port 3000 and proxies `/api` to the video server on port 4318. If FFmpeg is unavailable, image/file tools still work and video compression is visibly unavailable.
-
-## Host the complete website
-
-Use the included Dockerfile on a container host or VPS with sufficient temporary disk space. Static hosts and short-lived serverless functions cannot run these multi-GB video jobs. The same server serves the React build and `/api`; visitors use only their browser.
+Open `http://localhost:3000`. To create a static production build:
 
 ```sh
-docker build -t flexitools .
-docker run --rm -p 4318:4318 \
-  -e PUBLIC_ORIGIN=https://tools.example.com \
-  -e MAX_DISK_BYTES=34359738368 \
-  flexitools
+npm run build
 ```
 
-Replace the example origin with the actual HTTPS website origin. Terminate TLS at a reverse proxy. Allow request bodies up to your configured upload limit, disable request buffering for the upload route, and set request/read timeouts long enough for uploads and downloads. Check the hosting provider's hard request-size and timeout limits: code supporting 10 GiB does not make a restrictive provider support it. Put request/rate controls and any desired account or payment limits at the edge before operating an unrestricted public service.
+Publish the `build` directory on a static HTTPS host. Use `PUBLIC_URL=/Flexitools npm run build` for a project hosted at that path; the Pages workflow obtains the correct base path automatically.
 
-The worker encodes one video at a time. Jobs and access tokens live in memory; restarting a container loses job status and cancels processing. Run one replica, or use sticky routing so upload, polling, preview and download reach the same replica. Each replica needs its own temporary directory/volume. This is a bounded single-instance implementation, not a durable distributed queue.
+## Optional native server
 
-### Environment
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `HOST` | `127.0.0.1` (`0.0.0.0` in Docker) | Listen address |
-| `PORT` | `4318` | Website and API port |
-| `PUBLIC_ORIGIN` | Derived from request host | Exact allowed website origin; set behind TLS/proxies |
-| `MAX_UPLOAD_BYTES` | `10737418240` | 10 GiB input limit |
-| `MAX_DISK_BYTES` | `34359738368` | Total temporary storage reservation budget |
-| `MAX_PENDING_JOBS` | `4` | Concurrent uploads plus queued/processing jobs |
-| `MAX_JOBS` | `24` | Retained job records, including completed downloads |
-| `RETENTION_MS` | `3600000` | Retention after processing ends |
-| `UPLOAD_TIMEOUT_MS` | `1800000` | Maximum upload time, 30 minutes |
-| `VIDEO_TEMP_DIR` | OS temp + `flexitools-video` | Dedicated private directory per replica |
-| `FFMPEG_PATH`, `FFPROBE_PATH` | PATH executables | Override native binary locations |
-
-The admission budget reserves input plus up to twice the input size for output (at least 64 MiB), plus 128 MiB for auxiliary files. Provide disk headroom beyond the configured reservation budget. Completed jobs release input/log reservations and retain only output bytes. Very large targets can exceed the job's output budget and will fail explicitly rather than returning a truncated video.
-
-## Privacy and cleanup
-
-Image, resize, conversion, PDF and CSV work remains local to the browser. Video upload requires an explicit checkbox. Videos are streamed to private temporary files; random per-job tokens authorize status, preview, download and deletion. There is no public job listing.
-
-Input video and encoding logs are removed after successful conversion. Output is removed about 60 minutes after processing finishes (cleanup runs every minute), or sooner via **Delete server files**. Cancellation closes the upload/encoder/download and removes temporary files. Active downloads delay expiry until they finish. Abandoned files from a previous process are checked on startup and cleaned after their retention period. Deletion depends on the hosting filesystem, and operators must account for any infrastructure backups. Do not log capability-token query strings at the proxy.
+The earlier native FFmpeg implementation remains available for people who already have a suitable machine. It is not connected to the default app and is not needed for free hosting. See [optional native server](docs/optional-native-server.md) for its separate setup and upload/privacy requirements.
 
 ## Verification
 
 ```sh
 CI=true npm test -- --watchAll=false --runInBand
-npm run test:server
-npm run build
+CI=true npm run build
 ```
 
-The browser/UI suite covers image headers and limits, target-size behavior, actual export types, stale result cleanup, cancellation races, upload consent, service failures, and retries. Server tests generate real FFmpeg fixtures and exercise encoding/audio, targets, resizing, downloads, Range previews, tokens, cleanup, concurrent admission and storage accounting.
+Tests cover geometry/export behavior, real PDF/ZIP contents, file and resource limits, cleanup, cancellation, stale results, codec capability failures, and media UI settings. Browser video encoding and HEIC decoding depend on real browser codecs; mocked unit tests do not establish visual quality or reliable multi-GB processing. See [verification notes](docs/free-tools-verification.md) for completed checks and remaining manual coverage.
 
-`npm run test:large-video` is an optional streaming smoke test that creates a sparse MP4 larger than 2 GiB, uploads it, encodes it and removes its temporary files. It needs at least 3 GiB of free disk and native FFmpeg. The padding verifies transport and memory behavior, not compression quality. It is not part of the default test suite.
+The optional native service has a separate `npm run test:server` suite requiring FFmpeg. Its large-file transport smoke test does not validate browser video processing.
 
-See [design review and verification notes](docs/design-review.md) for current screenshots, test evidence and remaining manual checks.
-
-Built by Sch1xo · Acestar Villam Domum.
+[Added dependency licenses and source](THIRD_PARTY_NOTICES.md). Built by Sch1xo · Acestar Villam Domum.

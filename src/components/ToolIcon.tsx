@@ -1,6 +1,8 @@
 import React from 'react';
 
 const paths: Record<string, React.ReactNode> = {
+  batch: <><rect x="7" y="7" width="14" height="14" rx="3" /><path d="M17 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2m4-2 3-3 6 6" /></>,
+  crop: <><path d="M7 3v12a2 2 0 0 0 2 2h12M3 7h12a2 2 0 0 1 2 2v12M17 7l4-4" /></>,
   image: (
     <>
       <rect x="3" y="3" width="18" height="18" rx="4" />

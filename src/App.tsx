@@ -1,8 +1,12 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import ImageCompressor from './components/ImageCompressor';
-import VideoCompressor from './components/VideoCompressor';
 import ToolIcon from './components/ToolIcon';
+const BrowserMediaTools = lazy(() => import('./components/BrowserMediaTools'));
+const BatchImageCompressor = lazy(() => import('./components/BatchImageCompressor'));
+const ImageEditor = lazy(() => import('./components/ImageEditor'));
+const HeicConverter = lazy(() => import('./components/HeicConverter'));
+const PdfWorkbench = lazy(() => import('./components/PdfWorkbench'));
 const ImageResizer = lazy(() => import('./components/ImageResizer'));
 const FormatConverter = lazy(() => import('./components/FormatConverter'));
 const ToPdf = lazy(() => import('./components/ToPdf'));
@@ -20,13 +24,19 @@ const tools = [
   },
   {
     id: 'video',
-    label: 'Compress video',
+    label: 'Video & audio',
     icon: 'video',
     category: '',
     title: 'Less size. More play.',
     description:
-      'Compress large videos for easier sharing, right from your browser.',
-    badge: 'Big videos, easier to share',
+      'Compress, trim, mute, or extract audio. Your files stay on your device.',
+    badge: 'Your media, made useful',
+  },
+  {
+    id: 'batch', label: 'Batch images', icon: 'batch', category: 'IMAGE TOOLS',
+    title: 'A lighter batch.',
+    description: 'Compress a collection of images and download them together.',
+    badge: 'One batch. Less busywork.',
   },
   {
     id: 'resize',
@@ -38,6 +48,12 @@ const tools = [
     badge: 'Every pixel, in place',
   },
   {
+    id: 'edit', label: 'Edit image', icon: 'crop', category: '',
+    title: 'Make it your own.',
+    description: 'Crop, rotate, add a watermark, or remove embedded metadata.',
+    badge: 'A few finishing touches',
+  },
+  {
     id: 'convert',
     label: 'Convert image',
     icon: 'convert',
@@ -47,6 +63,12 @@ const tools = [
     badge: 'Switch it up',
   },
   {
+    id: 'heic', label: 'Convert HEIC', icon: 'image', category: '',
+    title: 'From phone to everywhere.',
+    description: 'Turn a HEIC photo into a JPG, PNG, or WebP you can share.',
+    badge: 'More ways to share',
+  },
+  {
     id: 'topdf',
     label: 'Create PDF',
     icon: 'pdf',
@@ -54,6 +76,12 @@ const tools = [
     title: 'Bring it all together.',
     description: 'Turn your images and documents into a shareable PDF.',
     badge: 'From files to finished',
+  },
+  {
+    id: 'organizepdf', label: 'Organize PDFs', icon: 'pdf', category: '',
+    title: 'Every page in its place.',
+    description: 'Merge PDFs, choose and reorder pages, or split them into a ZIP.',
+    badge: 'Put your pages to work',
   },
   {
     id: 'csvconverter',
@@ -68,7 +96,12 @@ const tools = [
 
 export default function App() {
   const [active, setActive] = useState('image');
+  const [visited, setVisited] = useState<string[]>(['image']);
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const selectTool = (id: string) => {
+    setActive(id);
+    setVisited((previous) => previous.includes(id) ? previous : [...previous, id]);
+  };
   const tool = tools.find((item) => item.id === active)!;
   return (
     <div className="app-shell">
@@ -79,7 +112,7 @@ export default function App() {
         <a
           className="brand"
           href="#image"
-          onClick={() => setActive('image')}
+          onClick={() => selectTool('image')}
           aria-label="Flexitool home"
         >
           <span className="brand-symbol">
@@ -100,11 +133,11 @@ export default function App() {
               <button
                 className={`nav-item ${active === item.id ? 'active' : ''}`}
                 aria-current={active === item.id ? 'page' : undefined}
-                onClick={() => setActive(item.id)}
+                onClick={() => selectTool(item.id)}
               >
                 <ToolIcon name={item.icon} size={19} />
                 <span>{item.label}</span>
-                {item.id === 'video' && <span className="new-badge">NEW</span>}
+                {item.id === 'video' && <span className="new-badge">FREE</span>}
                 {active === item.id && <span className="nav-dot" />}
               </button>
             </React.Fragment>
@@ -115,8 +148,7 @@ export default function App() {
             <ToolIcon name="shield" size={24} />
             <h3>Your files, handled with care.</h3>
             <p>
-              Images stay on your device. Uploaded videos are automatically
-              deleted.
+              Free tools. Your files stay on your device.
             </p>
           </div>
           <a
@@ -151,26 +183,23 @@ export default function App() {
             <h1>{tool.title}</h1>
             <p>{tool.description}</p>
           </div>
-          {(active === 'image' || active === 'video') && (
+          <div className="tool-workflow">
             <ol className="workflow-steps" aria-label="How it works">
               <li>
-                <span>01</span>Choose a file
+                <span>01</span>Choose files
               </li>
               <li className="step-line" aria-hidden="true" />
               <li>
-                <span>02</span>Find your balance
+                <span>02</span>Make it yours
               </li>
               <li className="step-line" aria-hidden="true" />
               <li>
                 <span>03</span>Download & go
               </li>
             </ol>
-          )}
+          </div>
           <div hidden={active !== 'image'}>
             <ImageCompressor />
-          </div>
-          <div hidden={active !== 'video'}>
-            <VideoCompressor />
           </div>
           <Suspense
             fallback={
@@ -179,6 +208,11 @@ export default function App() {
               </p>
             }
           >
+            {visited.includes('video') && <div hidden={active !== 'video'}><BrowserMediaTools /></div>}
+            {visited.includes('batch') && <div hidden={active !== 'batch'}><BatchImageCompressor /></div>}
+            {visited.includes('edit') && <div hidden={active !== 'edit'}><ImageEditor /></div>}
+            {visited.includes('heic') && <div hidden={active !== 'heic'}><HeicConverter /></div>}
+            {visited.includes('organizepdf') && <div hidden={active !== 'organizepdf'}><PdfWorkbench /></div>}
             <div className="legacy-tool">
               {active === 'resize' && <ImageResizer />}
               {active === 'convert' && <FormatConverter />}
