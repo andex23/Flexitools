@@ -1,4 +1,11 @@
-export const SUPPORTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+export const SUPPORTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
+
+export const validateImageDimensions = (width: number, height: number): void => {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 ||
+      width > 16384 || height > 16384 || width * height > 50_000_000) {
+    throw new Error('Use whole-number dimensions from 1 to 16,384 pixels, up to 50 megapixels.');
+  }
+};
 
 export const ASPECT_RATIOS = {
   '1:1': { width: 1, height: 1, description: 'Square (Instagram Post)' },
@@ -15,12 +22,13 @@ export const validateImageFile = (file: File): { isValid: boolean; error?: strin
   if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
     return {
       isValid: false,
-      error: `Unsupported file type. Please upload PNG, JPG, or SVG files only.`
+      error: 'Unsupported file type. Choose a PNG, JPG, WebP, or SVG image.'
     };
   }
 
   // Check file size (max 50MB)
   const maxSize = 50 * 1024 * 1024;
+  if (file.size === 0) return { isValid: false, error: 'This file is empty. Choose another image.' };
   if (file.size > maxSize) {
     return {
       isValid: false,
@@ -41,28 +49,26 @@ export const calculateDimensionsFromAspectRatio = (
   aspectRatio: AspectRatioKey,
   maxWidth = 1920
 ): { width: number; height: number } => {
+  validateImageDimensions(originalWidth, originalHeight);
+  if (!Number.isFinite(maxWidth) || maxWidth < 1) throw new Error('Invalid maximum dimension.');
   const ratio = ASPECT_RATIOS[aspectRatio];
   const aspectRatioValue = ratio.width / ratio.height;
-  
-  let width = maxWidth;
-  let height = Math.round(width / aspectRatioValue);
-  
-  // If height is too large, scale down based on height
-  if (height > maxWidth) {
-    height = maxWidth;
-    width = Math.round(height * aspectRatioValue);
-  }
-  
+
+  // A preset is a bounded canvas. Content is fitted inside it without stretching.
+  const longestSide = Math.min(Math.floor(maxWidth), Math.max(originalWidth, originalHeight), 16384);
+  const width = Math.max(1, Math.round(aspectRatioValue >= 1 ? longestSide : longestSide * aspectRatioValue));
+  const height = Math.max(1, Math.round(aspectRatioValue >= 1 ? longestSide / aspectRatioValue : longestSide));
+  validateImageDimensions(width, height);
   return { width, height };
 };
 
 export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 Bytes';
 
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
 
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i = Math.min(sizes.length - 1, Math.max(0, Math.floor(Math.log(bytes) / Math.log(k))));
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
@@ -100,4 +106,4 @@ export const handlePasteImage = (event: ClipboardEvent): File | null => {
   }
   
   return null;
-}; 
+};

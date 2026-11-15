@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { loadImageFromFile, downloadImage } from '../utils/canvasUtils';
 import { generateFileName, formatFileSize } from '../utils/imageHelpers';
@@ -35,74 +35,69 @@ const FormatConverter: React.FC = () => {
     { value: 'jpg' as OutputFormat, label: 'JPG', description: 'Best for photos' },
     { value: 'png' as OutputFormat, label: 'PNG', description: 'Best for graphics' },
     { value: 'webp' as OutputFormat, label: 'WebP', description: 'Modern format' },
-    { value: 'svg' as OutputFormat, label: 'SVG', description: 'Vector format' }
+    { value: 'svg' as OutputFormat, label: 'SVG', description: 'Embedded image; not vector tracing' }
   ];
 
-  const handleFileUpload = (file: File | null) => {
+  const handleFileUpload = useCallback((file: File | null) => {
     setUploadedFile(file);
-  };
+    setOriginalImage(null);
+  }, []);
 
-  // Load original image when file changes
   useEffect(() => {
-    if (uploadedFile) {
-      setLoading(true);
-      loadImageFromFile(uploadedFile)
-        .then((img) => {
-          setOriginalImage(img);
-          setLoading(false);
-        })
-        .catch((error) => {
-          console.error('Error loading image:', error);
-          toast.error('Failed to load image');
-          setLoading(false);
-        });
-    } else {
-      setOriginalImage(null);
+    let cancelled = false;
+    setOriginalImage(null);
+    if (!uploadedFile) {
+      setLoading(false);
+      return;
     }
+    setLoading(true);
+    loadImageFromFile(uploadedFile).then((img) => {
+      if (cancelled) return;
+      setOriginalImage(img);
+      setLoading(false);
+    }).catch((error) => {
+      if (cancelled) return;
+      toast.error(error instanceof Error ? error.message : 'Failed to load image');
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [uploadedFile]);
 
-  // Update preview when settings change
   useEffect(() => {
-    if (originalImage) {
-      updatePreview();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originalImage, outputFormat, jpegQuality]);
-
-  const updatePreview = () => {
-    if (!originalImage || !canvasRef.current) return;
-
+    if (!originalImage || !canvasRef.current || loading) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    // Calculate display size while maintaining aspect ratio
-    const maxDisplayWidth = 400;
-    const aspectRatio = originalImage.height / originalImage.width;
-    const displayWidth = Math.min(originalImage.width, maxDisplayWidth);
-    const displayHeight = displayWidth * aspectRatio;
-
-    canvas.width = displayWidth;
-    canvas.height = displayHeight;
-    
-    ctx.drawImage(originalImage, 0, 0, displayWidth, displayHeight);
-  };
+    const scale = Math.min(400 / originalImage.width, 400 / originalImage.height, 1);
+    canvas.width = Math.max(1, Math.round(originalImage.width * scale));
+    canvas.height = Math.max(1, Math.round(originalImage.height * scale));
+    if (outputFormat === 'jpg') {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+  }, [originalImage, outputFormat, loading]);
 
   const handleDownload = async () => {
     if (!originalImage || !uploadedFile) return;
     setLoading(true);
+    let exportCanvas: HTMLCanvasElement | null = null;
 
     try {
       // Create a new canvas with original dimensions for export
-      const exportCanvas = document.createElement('canvas');
+      exportCanvas = document.createElement('canvas');
       const exportCtx = exportCanvas.getContext('2d');
       if (!exportCtx) throw new Error('Could not get canvas context');
 
       exportCanvas.width = originalImage.width;
       exportCanvas.height = originalImage.height;
+      if (outputFormat === 'jpg') {
+        exportCtx.fillStyle = '#fff';
+        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+      }
       exportCtx.drawImage(originalImage, 0, 0);
 
-      const filename = generateFileName(uploadedFile.name, `converted.${outputFormat}`);
+      const filename = generateFileName(uploadedFile.name, 'converted', outputFormat);
       
       if (outputFormat === 'svg') {
         // For SVG, we need to handle it differently
@@ -118,17 +113,18 @@ const FormatConverter: React.FC = () => {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       } else {
-        const quality = outputFormat === 'jpg' ? jpegQuality / 100 : undefined;
-        downloadImage(exportCanvas, filename, outputFormat, quality);
+        const quality = outputFormat === 'jpg' || outputFormat === 'webp' ? jpegQuality / 100 : undefined;
+        await downloadImage(exportCanvas, filename, outputFormat, quality);
       }
       
-      toast.success('Image converted successfully!');
+      toast.success('Converted image download started');
     } catch (error) {
       console.error('Error converting image:', error);
-      toast.error('Failed to convert image');
+      toast.error(error instanceof Error ? error.message : 'Failed to convert image');
     } finally {
+      if (exportCanvas) { exportCanvas.width = 0; exportCanvas.height = 0; }
       setLoading(false);
     }
   };
@@ -162,8 +158,8 @@ const FormatConverter: React.FC = () => {
             <ul className="text-sm text-mist font-body space-y-1">
               <li>• <strong>Multiple Formats:</strong> JPG, PNG, WebP, SVG</li>
               <li>• <strong>Quality Control:</strong> Adjust compression settings</li>
-              <li>• <strong>Batch Processing:</strong> Convert multiple images</li>
-              <li>• <strong>Lossless:</strong> No quality degradation</li>
+              <li>• <strong>Local processing:</strong> Convert one image at a time</li>
+              <li>• <strong>Format choices:</strong> PNG preserves pixels; JPG and WebP use lossy compression</li>
             </ul>
           </div>
         </div>
@@ -284,10 +280,11 @@ const FormatConverter: React.FC = () => {
         {selectedTool === 'quality' && (
           <div className="mb-6">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-graphite font-body mb-2">
+              <label htmlFor="converter-output-format" className="block text-sm font-medium text-graphite font-body mb-2">
                 Output Format
               </label>
               <select
+                id="converter-output-format"
                 value={outputFormat}
                 onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
                 className="w-full px-3 py-2 border border-creamline rounded-xl focus:outline-none focus:ring-2 focus:ring-ink focus:border-ink bg-milk text-graphite font-body"
@@ -300,13 +297,14 @@ const FormatConverter: React.FC = () => {
               </select>
             </div>
 
-            {outputFormat === 'jpg' && (
+            {(outputFormat === 'jpg' || outputFormat === 'webp') && (
               <div>
-                <label className="block text-sm font-medium text-graphite font-body mb-2">
-                  JPEG Quality: {jpegQuality}%
+                <label htmlFor="converter-quality" className="block text-sm font-medium text-graphite font-body mb-2">
+                  Export quality: {jpegQuality}%
                 </label>
                 <input
                   type="range"
+                  id="converter-quality"
                   min="10"
                   max="100"
                   value={jpegQuality}
@@ -323,6 +321,7 @@ const FormatConverter: React.FC = () => {
         )}
 
         {/* Download Button */}
+        {outputFormat === 'jpg' && <p className="text-sm text-mist mb-4">JPG uses lossy compression and replaces transparent areas with white.</p>}
         <button
           onClick={handleDownload}
           disabled={!originalImage || loading}
@@ -368,7 +367,7 @@ const FormatConverter: React.FC = () => {
           <div className="mt-4 text-center">
             <span className="text-sm text-mist font-body">
               Output: {outputFormat.toUpperCase()}
-              {outputFormat === 'jpg' && ` (${jpegQuality}% quality)`}
+              {(outputFormat === 'jpg' || outputFormat === 'webp') && ` (${jpegQuality}% quality)`}
             </span>
           </div>
         </div>
@@ -377,4 +376,4 @@ const FormatConverter: React.FC = () => {
   );
 };
 
-export default FormatConverter; 
+export default FormatConverter;

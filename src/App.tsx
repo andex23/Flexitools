@@ -1,129 +1,241 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import Tabs, { Tab } from './components/Tabs';
-import ImageResizer from './components/ImageResizer';
-import FormatConverter from './components/FormatConverter';
-import ToPdf from './components/ToPdf';
-import CSVConverter from './components/CSVConverter';
-import TimeDisplay from './components/TimeDisplay';
+import ImageCompressor from './components/ImageCompressor';
+import ToolIcon from './components/ToolIcon';
+const BrowserMediaTools = lazy(() => import('./components/BrowserMediaTools'));
+const BatchImageCompressor = lazy(() => import('./components/BatchImageCompressor'));
+const ImageEditor = lazy(() => import('./components/ImageEditor'));
+const HeicConverter = lazy(() => import('./components/HeicConverter'));
+const PdfWorkbench = lazy(() => import('./components/PdfWorkbench'));
+const ImageResizer = lazy(() => import('./components/ImageResizer'));
+const FormatConverter = lazy(() => import('./components/FormatConverter'));
+const ToPdf = lazy(() => import('./components/ToPdf'));
+const CSVConverter = lazy(() => import('./components/CSVConverter'));
 
-const tabs: Tab[] = [
+const tools = [
+  {
+    id: 'image',
+    label: 'Compress image',
+    icon: 'image',
+    category: 'MEDIA TOOLS',
+    title: 'Small file. Big impression.',
+    description: 'Lighter images, without leaving the details behind.',
+    badge: 'Images, made lighter',
+  },
+  {
+    id: 'video',
+    label: 'Video & audio',
+    icon: 'video',
+    category: '',
+    title: 'Less size. More play.',
+    description:
+      'Compress, trim, mute, or extract audio. Your files stay on your device.',
+    badge: 'Your media, made useful',
+  },
+  {
+    id: 'batch', label: 'Batch images', icon: 'batch', category: 'IMAGE TOOLS',
+    title: 'A lighter batch.',
+    description: 'Compress a collection of images and download them together.',
+    badge: 'One batch. Less busywork.',
+  },
   {
     id: 'resize',
-    label: 'Image Resizer',
-    icon: '📐'
+    label: 'Resize image',
+    icon: 'resize',
+    category: '',
+    title: 'The right size for every space.',
+    description: 'Set your dimensions, keep your proportions, and make it fit.',
+    badge: 'Every pixel, in place',
+  },
+  {
+    id: 'edit', label: 'Edit image', icon: 'crop', category: '',
+    title: 'Make it your own.',
+    description: 'Crop, rotate, add a watermark, or remove embedded metadata.',
+    badge: 'A few finishing touches',
   },
   {
     id: 'convert',
-    label: 'Format Converter',
-    icon: '🔁'
+    label: 'Convert image',
+    icon: 'convert',
+    category: '',
+    title: 'A fresh format.',
+    description: 'Turn your image into the format your next project needs.',
+    badge: 'Switch it up',
+  },
+  {
+    id: 'heic', label: 'Convert HEIC', icon: 'image', category: '',
+    title: 'From phone to everywhere.',
+    description: 'Turn a HEIC photo into a JPG, PNG, or WebP you can share.',
+    badge: 'More ways to share',
   },
   {
     id: 'topdf',
-    label: 'To PDF',
-    icon: '📄'
+    label: 'Create PDF',
+    icon: 'pdf',
+    category: 'FILE TOOLS',
+    title: 'Bring it all together.',
+    description: 'Turn your images and documents into a shareable PDF.',
+    badge: 'From files to finished',
+  },
+  {
+    id: 'organizepdf', label: 'Organize PDFs', icon: 'pdf', category: '',
+    title: 'Every page in its place.',
+    description: 'Merge PDFs, choose and reorder pages, or split them into a ZIP.',
+    badge: 'Put your pages to work',
   },
   {
     id: 'csvconverter',
-    label: 'CSV Converter',
-    icon: '📊'
-  }
+    label: 'Convert CSV',
+    icon: 'table',
+    category: '',
+    title: 'Your data. A different format.',
+    description: 'Convert between CSV, JSON, Excel, and PDF.',
+    badge: 'Make your data move',
+  },
 ];
 
-function App() {
-  const [activeTab, setActiveTab] = useState('resize');
+export default function App() {
+  const [active, setActive] = useState('image');
+  const [visited, setVisited] = useState<string[]>(['image']);
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
-
-  const handlePdfFilesChange = (files: File[]) => {
-    setPdfFiles(files);
+  const selectTool = (id: string) => {
+    setActive(id);
+    setVisited((previous) => previous.includes(id) ? previous : [...previous, id]);
   };
-
-  const renderActiveToolContent = () => {
-    switch (activeTab) {
-      case 'resize':
-        return <ImageResizer />;
-      case 'convert':
-        return <FormatConverter />;
-      case 'topdf':
-        return <ToPdf files={pdfFiles} onFilesChange={handlePdfFilesChange} />;
-      case 'csvconverter':
-        return <CSVConverter />;
-      default:
-        return <ImageResizer />;
-    }
-  };
-
+  const tool = tools.find((item) => item.id === active)!;
   return (
-    <div className="min-h-screen bg-milk font-body flex flex-col">
-      {/* Header */}
-      <header className="bg-taupe shadow-sm border-b border-creamline">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            <div 
-              className="flex items-center space-x-2 sm:space-x-3 cursor-pointer hover:opacity-80 transition-opacity duration-200"
-              onClick={() => window.location.reload()}
-            >
-              <img 
-                src="/flexitool-logo.svg" 
-                alt="FlexiTool Logo" 
-                className="h-6 w-6 sm:h-8 sm:w-8"
-              />
-              <div>
-                <h1 className="text-xs sm:text-sm font-semibold text-graphite font-heading">Flexitool</h1>
-                <p className="text-xs text-mist">Resize and convert images and files</p>
-              </div>
-            </div>
-            <TimeDisplay />
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to tool
+      </a>
+      <aside className="sidebar">
+        <a
+          className="brand"
+          href="#image"
+          onClick={() => selectTool('image')}
+          aria-label="Flexitool home"
+        >
+          <span className="brand-symbol">
+            f<span>.</span>
+          </span>
+          <span>
+            flexitool<span className="brand-period">.</span>
+          </span>
+        </a>
+        <div className="sidebar-intro">
+          A little less file.
+          <br />A lot more possibility.
+        </div>
+        <nav className="tool-navigation" aria-label="Tools">
+          {tools.map((item) => (
+            <React.Fragment key={item.id}>
+              {item.category && <p className="nav-category">{item.category}</p>}
+              <button
+                className={`nav-item ${active === item.id ? 'active' : ''}`}
+                aria-current={active === item.id ? 'page' : undefined}
+                onClick={() => selectTool(item.id)}
+              >
+                <ToolIcon name={item.icon} size={19} />
+                <span>{item.label}</span>
+                {item.id === 'video' && <span className="new-badge">FREE</span>}
+                {active === item.id && <span className="nav-dot" />}
+              </button>
+            </React.Fragment>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="privacy-card">
+            <ToolIcon name="shield" size={24} />
+            <h3>Your files, handled with care.</h3>
+            <p>
+              Free tools. Your files stay on your device.
+            </p>
           </div>
+          <a
+            href="https://github.com/andex23/Flexitools"
+            target="_blank"
+            rel="noreferrer"
+            className="source-link"
+          >
+            Built to be useful.
+            <ToolIcon name="arrow" size={15} />
+          </a>
         </div>
-      </header>
-
-      {/* Navigation Tabs */}
-      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 w-full">
-        {/* All tools now use full width and handle their own uploads */}
-        <div>
-          {renderActiveToolContent()}
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="text-center text-mist text-xs sm:text-sm py-4 sm:py-6 mt-auto border-t border-creamline bg-taupe">
-        <div className="block sm:hidden">Made by Sch1xo</div>
-        <div className="block sm:hidden">© Acestar Villam Domum</div>
-        <div className="hidden sm:block">Made by Sch1xo • © Acestar Villam Domum</div>
-      </footer>
-
-      {/* Toast Notifications */}
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <span>YOUR EVERYDAY TOOLBOX</span>
+          <a
+            href="https://github.com/andex23/Flexitools"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open source
+            <ToolIcon name="arrow" size={15} />
+          </a>
+        </header>
+        <main id="main-content" className="main-content">
+          <div className="page-heading">
+            <div className="eyebrow">
+              <span />
+              {tool.badge}
+            </div>
+            <h1>{tool.title}</h1>
+            <p>{tool.description}</p>
+          </div>
+          <div className="tool-workflow">
+            <ol className="workflow-steps" aria-label="How it works">
+              <li>
+                <span>01</span>Choose files
+              </li>
+              <li className="step-line" aria-hidden="true" />
+              <li>
+                <span>02</span>Make it yours
+              </li>
+              <li className="step-line" aria-hidden="true" />
+              <li>
+                <span>03</span>Download & go
+              </li>
+            </ol>
+          </div>
+          <div hidden={active !== 'image'}>
+            <ImageCompressor />
+          </div>
+          <Suspense
+            fallback={
+              <p className="status-note" role="status">
+                Loading your tool…
+              </p>
+            }
+          >
+            {visited.includes('video') && <div hidden={active !== 'video'}><BrowserMediaTools /></div>}
+            {visited.includes('batch') && <div hidden={active !== 'batch'}><BatchImageCompressor /></div>}
+            {visited.includes('edit') && <div hidden={active !== 'edit'}><ImageEditor /></div>}
+            {visited.includes('heic') && <div hidden={active !== 'heic'}><HeicConverter /></div>}
+            {visited.includes('organizepdf') && <div hidden={active !== 'organizepdf'}><PdfWorkbench /></div>}
+            <div className="legacy-tool">
+              {active === 'resize' && <ImageResizer />}
+              {active === 'convert' && <FormatConverter />}
+              {active === 'topdf' && (
+                <ToPdf files={pdfFiles} onFilesChange={setPdfFiles} />
+              )}{' '}
+              {active === 'csvconverter' && <CSVConverter />}
+            </div>
+          </Suspense>
+          <footer className="workspace-footer">
+            <span>Less friction. More making.</span>
+            <span>
+              Made by Sch1xo <span className="footer-dot">·</span> Flexitool
+            </span>
+          </footer>
+        </main>
+      </div>
       <Toaster
-        position="top-right"
+        position="bottom-right"
         toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            fontSize: '14px',
-          },
-          success: {
-            duration: 2000,
-            iconTheme: {
-              primary: '#10B981',
-              secondary: '#fff',
-            },
-          },
-          error: {
-            duration: 4000,
-            iconTheme: {
-              primary: '#EF4444',
-              secondary: '#fff',
-            },
-          },
+          style: { background: '#203e33', color: '#fff', fontSize: '14px' },
         }}
       />
     </div>
   );
 }
-
-export default App;

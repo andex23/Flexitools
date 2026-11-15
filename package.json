@@ -12,8 +12,11 @@
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@types/react-dropzone": "^5.1.0",
+    "fflate": "^0.8.3",
+    "heic-to": "^1.6.7",
     "jspdf": "^3.0.1",
     "mammoth": "^1.9.1",
+    "mediabunny": "^1.66.0",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "react": "^18.2.0",
@@ -29,7 +32,11 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "server": "node server/index.mjs",
+    "test:server": "node --test server/*.test.mjs",
+    "serve": "node server/index.mjs",
+    "test:large-video": "node scripts/large-video-smoke.mjs"
   },
   "eslintConfig": {
     "extends": [

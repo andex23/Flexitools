@@ -1,7 +1,10 @@
+import { validateImageDimensions } from './imageHelpers';
+
 export interface ResizeOptions {
   width: number;
   height: number;
   maintainAspectRatio?: boolean;
+  fit?: 'contain' | 'stretch';
 }
 
 export interface ConvertOptions {
@@ -16,7 +19,12 @@ export const loadImageFromFile = (file: File): Promise<HTMLImageElement> => {
     
     img.onload = () => {
       URL.revokeObjectURL(url);
-      resolve(img);
+      try {
+        validateImageDimensions(img.naturalWidth, img.naturalHeight);
+        resolve(img);
+      } catch (error) {
+        reject(error);
+      }
     };
     
     img.onerror = () => {
@@ -40,6 +48,8 @@ export const loadImageFromUrl = (url: string): Promise<HTMLImageElement> => {
 };
 
 export const resizeImage = (img: HTMLImageElement, options: ResizeOptions): HTMLCanvasElement => {
+  validateImageDimensions(options.width, options.height);
+  validateImageDimensions(img.width, img.height);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
@@ -47,7 +57,7 @@ export const resizeImage = (img: HTMLImageElement, options: ResizeOptions): HTML
     throw new Error('Could not get canvas context');
   }
   
-  const { width, height, maintainAspectRatio = false } = options;
+  const { width, height, maintainAspectRatio = false, fit = 'stretch' } = options;
   
   if (maintainAspectRatio) {
     const aspectRatio = img.width / img.height;
@@ -55,9 +65,9 @@ export const resizeImage = (img: HTMLImageElement, options: ResizeOptions): HTML
     
     if (aspectRatio > targetAspectRatio) {
       canvas.width = width;
-      canvas.height = width / aspectRatio;
+      canvas.height = Math.max(1, Math.round(width / aspectRatio));
     } else {
-      canvas.width = height * aspectRatio;
+      canvas.width = Math.max(1, Math.round(height * aspectRatio));
       canvas.height = height;
     }
   } else {
@@ -65,11 +75,21 @@ export const resizeImage = (img: HTMLImageElement, options: ResizeOptions): HTML
     canvas.height = height;
   }
   
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  if (fit === 'contain') {
+    const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
+    const drawWidth = img.width * scale;
+    const drawHeight = img.height * scale;
+    ctx.drawImage(img, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
+  } else {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
   return canvas;
 };
 
 export const convertImage = (img: HTMLImageElement, options: ConvertOptions): HTMLCanvasElement => {
+  validateImageDimensions(img.width, img.height);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
@@ -92,6 +112,7 @@ export const convertImage = (img: HTMLImageElement, options: ConvertOptions): HT
 
 export const renderSvgToCanvas = (svgString: string, width: number, height: number): Promise<HTMLCanvasElement> => {
   return new Promise((resolve, reject) => {
+    validateImageDimensions(width, height);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -134,19 +155,19 @@ export const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: 
   });
 };
 
-export const downloadImage = (canvas: HTMLCanvasElement, filename: string, format: string, quality?: number) => {
+export const downloadImage = async (canvas: HTMLCanvasElement, filename: string, format: string, quality?: number): Promise<void> => {
+  const mimeTypes: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+  const mimeType = mimeTypes[format];
+  if (!mimeType) throw new Error('This export format is not supported.');
+  const blob = await canvasToBlob(canvas, mimeType, quality);
+  if (blob.type !== mimeType) throw new Error('Your browser cannot export this format. Choose PNG or JPG.');
   const link = document.createElement('a');
-  const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-  
-  canvas.toBlob((blob) => {
-    if (blob) {
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-  }, mimeType, quality);
-}; 
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Give the browser time to start reading the download before releasing its URL.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
